@@ -11,7 +11,7 @@ Desktop transcription app with a modern tech-style UI, drag-and-drop import, FIF
 - Queue system (first in, first out) so only one file transcribes at a time.
 - Auto-generates and saves `.srt` for every job.
 - Defaults SRT output to `~/Downloads/WhisperWatch` with folder picker override.
-- Built-in link button for SRT editing: <https://matthewpenkala.com/srt-editor>.
+- Built-in link button for SRT editing:
 - Centralized styling in one file: `app/ui/styles.qss`.
 
 ## Workspace Layout

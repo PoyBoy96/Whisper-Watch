@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Iterable
 
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtCore import QTimer, QUrl, Qt
 from PySide6.QtGui import QColor, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -25,8 +27,10 @@ from app.core.queue_manager import TranscriptionQueueManager
 from app.core.settings_store import SettingsStore
 from app.core.srt_service import SrtService
 from app.core.transcription_models import JobStatus, TranscriptionJob
+from app.core.update_service import UpdateRelease, UpdateService
 from app.core.whisper_service import WhisperService
-from app.ui.widgets import DropZoneWidget, GlowButton
+from app.ui.widgets import DropZoneWidget, GlowButton, NotificationBellButton
+from app.version import APP_VERSION
 
 
 def timestamp_for_log(seconds: float) -> str:
@@ -52,10 +56,12 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1180, 760)
         self.resize(1280, 820)
         self._brand_icon = self._load_brand_icon()
+        self._notification_icon = self._load_notification_icon()
         if not self._brand_icon.isNull():
             self.setWindowIcon(self._brand_icon)
 
         self._settings = SettingsStore()
+        self._update_service = UpdateService(parent=self)
         self._queue_manager = TranscriptionQueueManager(
             whisper_service=WhisperService(),
             srt_service=SrtService(),
@@ -65,11 +71,15 @@ class MainWindow(QMainWindow):
         self._active_job_id: str | None = None
         self._latest_srt_path: Path | None = None
         self._active_transcript_lines: list[str] = []
+        self._pending_update_release: UpdateRelease | None = None
+        self._update_error: str = ""
+        self._update_install_in_progress = False
 
         self._build_ui()
         self._wire_events()
         self._load_initial_settings()
         self._refresh_queue(self._queue_manager.queue_snapshot())
+        QTimer.singleShot(500, self._check_for_updates_on_launch)
 
     def _build_ui(self) -> None:
         root = QWidget(self)
@@ -111,6 +121,22 @@ class MainWindow(QMainWindow):
 
         title_row.addWidget(logo_label, 0, Qt.AlignTop)
         title_row.addLayout(title_col, 1)
+        title_row.addStretch(1)
+
+        notifications_col = QVBoxLayout()
+        notifications_col.setSpacing(4)
+        notifications_col.setContentsMargins(0, 0, 0, 0)
+
+        self.notification_bell_button = NotificationBellButton(self._notification_icon)
+        self.notification_bell_button.set_has_notification(False)
+
+        self.update_state_label = QLabel("Update check pending...")
+        self.update_state_label.setObjectName("updateStateLabel")
+        self.update_state_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        notifications_col.addWidget(self.notification_bell_button, 0, Qt.AlignRight)
+        notifications_col.addWidget(self.update_state_label, 0, Qt.AlignRight)
+        title_row.addLayout(notifications_col)
 
         header_layout.addLayout(title_row)
         root_layout.addWidget(header_card)
@@ -211,6 +237,17 @@ class MainWindow(QMainWindow):
         self.job_progress_bar.setValue(0)
         self.job_progress_bar.setFormat("Idle")
 
+        self.update_progress_bar = QProgressBar()
+        self.update_progress_bar.setObjectName("updateProgressBar")
+        self.update_progress_bar.setRange(0, 100)
+        self.update_progress_bar.setValue(0)
+        self.update_progress_bar.setFormat("Updater idle")
+        self.update_progress_bar.hide()
+
+        self.update_detail_label = QLabel("")
+        self.update_detail_label.setObjectName("updateStateLabel")
+        self.update_detail_label.hide()
+
         action_row = QHBoxLayout()
         action_row.setSpacing(10)
         self.open_last_srt_button = GlowButton("Open Last SRT")
@@ -230,6 +267,8 @@ class MainWindow(QMainWindow):
         right_layout.addLayout(action_row)
         right_layout.addWidget(self.job_progress_bar)
         right_layout.addWidget(self.status_label)
+        right_layout.addWidget(self.update_progress_bar)
+        right_layout.addWidget(self.update_detail_label)
 
         content_layout.addWidget(right_card, 1)
 
@@ -239,9 +278,16 @@ class MainWindow(QMainWindow):
             return QIcon()
         return QIcon(str(icon_path))
 
+    def _load_notification_icon(self) -> QIcon:
+        icon_path = resource_path("assets", "notification-bell.svg")
+        if not icon_path.exists():
+            return QIcon()
+        return QIcon(str(icon_path))
+
     def _wire_events(self) -> None:
         self.import_button.clicked.connect(self._import_files)
         self.drop_zone.files_dropped.connect(self._handle_dropped_files)
+        self.notification_bell_button.clicked.connect(self._on_notification_clicked)
 
         self.choose_output_button.clicked.connect(self._choose_output_folder)
         self.open_output_button.clicked.connect(self._open_output_folder)
@@ -257,6 +303,13 @@ class MainWindow(QMainWindow):
         self._queue_manager.segment_received.connect(self._on_segment_received)
         self._queue_manager.job_completed.connect(self._on_job_completed)
         self._queue_manager.job_failed.connect(self._on_job_failed)
+
+        self._update_service.check_started.connect(self._on_update_check_started)
+        self._update_service.check_completed.connect(self._on_update_check_completed)
+        self._update_service.install_status.connect(self._on_update_install_status)
+        self._update_service.install_progress.connect(self._on_update_install_progress)
+        self._update_service.install_ready.connect(self._on_update_install_ready)
+        self._update_service.install_failed.connect(self._on_update_install_failed)
 
     def _load_initial_settings(self) -> None:
         output_dir = self._settings.get_output_dir()
@@ -345,6 +398,165 @@ class MainWindow(QMainWindow):
 
     def _open_srt_editor(self) -> None:
         QDesktopServices.openUrl(QUrl(SRT_EDITOR_URL))
+
+    def _check_for_updates_on_launch(self) -> None:
+        self._update_service.check_for_update_async(APP_VERSION)
+
+    def _on_update_check_started(self) -> None:
+        self._update_error = ""
+        self.update_state_label.setText("Checking for updates...")
+
+    def _on_update_check_completed(self, release: object, error: str) -> None:
+        update_release = release if isinstance(release, UpdateRelease) else None
+        if error:
+            self._pending_update_release = None
+            self._update_error = error
+            self.notification_bell_button.set_has_notification(False)
+            self.update_state_label.setText("Update check failed")
+            return
+
+        self._update_error = ""
+        if update_release is not None:
+            self._pending_update_release = update_release
+            self.notification_bell_button.set_has_notification(True)
+            self.update_state_label.setText(f"Update {update_release.tag_name} available")
+            return
+
+        self._pending_update_release = None
+        self.notification_bell_button.set_has_notification(False)
+        self.update_state_label.setText(f"Up to date ({APP_VERSION})")
+
+    def _on_notification_clicked(self) -> None:
+        if self._update_install_in_progress:
+            QMessageBox.information(self, APP_NAME, "Update install is already running.")
+            return
+
+        if self._pending_update_release is None:
+            details = self._update_error if self._update_error else f"Whisper Watch {APP_VERSION} is up to date."
+            message = QMessageBox(self)
+            message.setWindowTitle("Notifications")
+            message.setIcon(QMessageBox.Information)
+            message.setText("No new notifications.")
+            message.setInformativeText(details)
+            check_button = message.addButton("Check Again", QMessageBox.ActionRole)
+            message.addButton("Close", QMessageBox.RejectRole)
+            message.exec()
+            if message.clickedButton() == check_button:
+                self._check_for_updates_on_launch()
+            return
+
+        release = self._pending_update_release
+        message = QMessageBox(self)
+        message.setWindowTitle("Update Notification")
+        message.setIcon(QMessageBox.Information)
+        message.setText("Notification available. Click Install to install.")
+        message.setInformativeText(
+            f"Current: {APP_VERSION}\nAvailable: {release.tag_name}\n"
+            "The app will close, install in place, and reopen automatically."
+        )
+        install_button = message.addButton("Install Update", QMessageBox.AcceptRole)
+        open_release_button = message.addButton("Open Release Page", QMessageBox.ActionRole)
+        message.addButton("Later", QMessageBox.RejectRole)
+        message.exec()
+
+        if message.clickedButton() == open_release_button:
+            if release.html_url:
+                QDesktopServices.openUrl(QUrl(release.html_url))
+            return
+        if message.clickedButton() == install_button:
+            self._start_update_install()
+
+    def _start_update_install(self) -> None:
+        if self._pending_update_release is None:
+            return
+
+        busy = any(
+            job.status in {JobStatus.QUEUED, JobStatus.PROCESSING}
+            for job in self._queue_manager.queue_snapshot()
+        )
+        if busy:
+            choice = QMessageBox.question(
+                self,
+                APP_NAME,
+                "A transcription is running or queued. Installing now will interrupt pending work. Continue?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if choice != QMessageBox.Yes:
+                return
+
+        if not getattr(sys, "frozen", False):
+            release_url = self._pending_update_release.html_url
+            QMessageBox.information(
+                self,
+                APP_NAME,
+                "Auto-install is only available in the packaged app. Opening the release page now.",
+            )
+            if release_url:
+                QDesktopServices.openUrl(QUrl(release_url))
+            return
+
+        current_exe = Path(sys.executable).resolve()
+        install_dir = current_exe.parent
+
+        self._update_install_in_progress = True
+        self.notification_bell_button.setEnabled(False)
+        self.notification_bell_button.set_has_notification(True)
+        self.update_progress_bar.show()
+        self.update_detail_label.show()
+        self.update_progress_bar.setRange(0, 100)
+        self.update_progress_bar.setValue(0)
+        self.update_progress_bar.setFormat("0%")
+        self.update_state_label.setText("Starting update download...")
+        self.update_detail_label.setText("")
+        self._update_service.install_update_async(
+            self._pending_update_release,
+            current_exe=current_exe,
+            install_dir=install_dir,
+        )
+
+    def _on_update_install_status(self, status: str) -> None:
+        self.update_state_label.setText(status)
+        self.update_detail_label.show()
+        self.update_detail_label.setText(status)
+
+    def _on_update_install_progress(self, percent: int, detail: str) -> None:
+        self.update_progress_bar.show()
+        self.update_detail_label.show()
+
+        if percent < 0:
+            self.update_progress_bar.setRange(0, 0)
+            self.update_progress_bar.setFormat("Downloading...")
+        else:
+            if self.update_progress_bar.minimum() == 0 and self.update_progress_bar.maximum() == 0:
+                self.update_progress_bar.setRange(0, 100)
+            bounded = max(0, min(100, percent))
+            self.update_progress_bar.setValue(bounded)
+            self.update_progress_bar.setFormat(f"{bounded}%")
+
+        self.update_detail_label.setText(detail)
+
+    def _on_update_install_ready(self) -> None:
+        self.update_state_label.setText("Installing update and relaunching...")
+        self.update_detail_label.setText("Whisper Watch will close and restart automatically.")
+        self.update_progress_bar.setRange(0, 0)
+        self.update_progress_bar.setFormat("Installing...")
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            QTimer.singleShot(300, app_instance.quit)
+        else:
+            QTimer.singleShot(300, self.close)
+
+    def _on_update_install_failed(self, error: str) -> None:
+        self._update_install_in_progress = False
+        self.notification_bell_button.setEnabled(True)
+        self.update_state_label.setText("Update install failed")
+        self.update_detail_label.show()
+        self.update_detail_label.setText(error)
+        self.update_progress_bar.setRange(0, 100)
+        self.update_progress_bar.setValue(0)
+        self.update_progress_bar.setFormat("Failed")
+        QMessageBox.warning(self, APP_NAME, error)
 
     def _refresh_queue(self, jobs: list[TranscriptionJob]) -> None:
         self.queue_list.clear()

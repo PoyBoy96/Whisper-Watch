@@ -150,6 +150,59 @@ QPushButton#modelButton[active="true"] {
     );
 }
 
+QPushButton#notificationBellButton {
+    min-width: 44px;
+    min-height: 44px;
+    max-width: 44px;
+    max-height: 44px;
+    border-radius: 13px;
+    padding: 0;
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 1, y2: 1,
+        stop: 0 #153a73,
+        stop: 1 #102d56
+    );
+    border: 1px solid rgba(114, 171, 255, 165);
+}
+
+QPushButton#notificationBellButton:hover {
+    border: 1px solid rgba(122, 241, 255, 230);
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 1, y2: 1,
+        stop: 0 #1a4788,
+        stop: 1 #16406f
+    );
+}
+
+QLabel#notificationBadge {
+    background-color: #ff4d76;
+    border: 1px solid rgba(255, 198, 210, 220);
+    border-radius: 6px;
+}
+
+QLabel#updateStateLabel {
+    color: #8faed8;
+    font-size: 9.2pt;
+}
+
+QProgressBar#updateProgressBar {
+    border: 1px solid rgba(89, 124, 200, 120);
+    border-radius: 8px;
+    background-color: rgba(5, 12, 30, 160);
+    text-align: center;
+    color: #cde6ff;
+    min-height: 15px;
+}
+
+QProgressBar#updateProgressBar::chunk {
+    border-radius: 6px;
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 1, y2: 0,
+        stop: 0 #2ea8ff,
+        stop: 1 #5ff1d8
+    );
+}
+
 QFrame#dropZone {
     border: 1px dashed rgba(130, 168, 255, 170);
     border-radius: 14px;

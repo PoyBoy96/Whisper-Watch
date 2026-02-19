@@ -26,7 +26,7 @@ Use this if you want everyone running the app locally.
 
 If you build an installer later, send this single file instead:
 
-- `dist-installer\WhisperWatchSetup.exe`
+- `dist-installer\WhisperWatchInstaller_v1_0_1.exe`
 
 ## Better approach for one network (recommended)
 
@@ -61,4 +61,3 @@ C:\Users\<YourUser>\Downloads\WhisperWatch
 
 If you want central/shared processing instead of local machine processing, tell me and I’ll move us to a single LAN server deployment.
 ```
-

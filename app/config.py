@@ -5,6 +5,8 @@ from pathlib import Path
 
 APP_NAME = "Whisper Watch"
 APP_ORG = "WhisperWatch"
+APP_REPO_URL = "https://github.com/PoyBoy96/Whisper-Watch.git"
+UPDATER_USER_AGENT = "Whisper-Watch-Updater"
 DEFAULT_MODEL_NAME = "large-v3"
 SRT_EDITOR_URL = "https://matthewpenkala.com/srt-editor"
 

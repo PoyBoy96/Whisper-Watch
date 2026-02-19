@@ -1,0 +1,91 @@
+name: Build And Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Inno Setup 6
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Installer
+        shell: powershell
+        run: .\scripts\build_installer.ps1
+
+      - name: Resolve Release Metadata
+        id: meta
+        shell: powershell
+        run: |
+          $match = Select-String -Path "app/version.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
+          if (-not $match) {
+            throw "APP_VERSION not found in app/version.py"
+          }
+
+          $version = $match.Matches[0].Groups[1].Value
+          $tag = "v$version"
+          $versionUnderscore = $version -replace '\.', '_'
+          $installerPath = "dist-installer/WhisperWatchInstaller_v$versionUnderscore.exe"
+
+          if (-not (Test-Path $installerPath)) {
+            throw "Installer was not found at: $installerPath"
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "installer_path=$installerPath" >> $env:GITHUB_OUTPUT
+
+      - name: Check If Tag Exists
+        id: tag_exists
+        shell: powershell
+        run: |
+          git fetch --tags
+          $tag = "${{ steps.meta.outputs.tag }}"
+          $result = git ls-remote --tags origin "refs/tags/$tag"
+          if ($result) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Create And Push Tag
+        if: steps.tag_exists.outputs.exists == 'false'
+        shell: powershell
+        run: |
+          $tag = "${{ steps.meta.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag $tag
+          git push origin $tag
+
+      - name: Create Or Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Whisper Watch ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          overwrite_files: true
+          files: |
+            ${{ steps.meta.outputs.installer_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

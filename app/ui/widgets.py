@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QEasingCurve, Property, QPropertyAnimation, Qt, Signal
-from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent
+from PySide6.QtCore import QEasingCurve, Property, QPropertyAnimation, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
@@ -53,6 +53,37 @@ class GlowButton(QPushButton):
         self._animation.setEndValue(0.0)
         self._animation.start()
         super().leaveEvent(event)
+
+
+class NotificationBellButton(GlowButton):
+    def __init__(self, icon: QIcon | None = None, parent: QWidget | None = None) -> None:
+        super().__init__("", parent)
+        self.setObjectName("notificationBellButton")
+        self.setFixedSize(44, 44)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("Notifications")
+        self.setAccessibleName("Update Notifications")
+
+        if icon and not icon.isNull():
+            self.setIcon(icon)
+            self.setIconSize(QSize(20, 20))
+        else:
+            self.setText("N")
+
+        self._badge = QLabel(self)
+        self._badge.setObjectName("notificationBadge")
+        self._badge.setFixedSize(12, 12)
+        self._badge.hide()
+
+    def resizeEvent(self, event) -> None:  # noqa: ANN001
+        super().resizeEvent(event)
+        self._badge.move(self.width() - self._badge.width() - 5, 4)
+
+    def set_has_notification(self, has_notification: bool) -> None:
+        self._badge.setVisible(has_notification)
+
+    def has_notification(self) -> bool:
+        return self._badge.isVisible()
 
 
 class DropZoneWidget(QFrame):
@@ -109,4 +140,3 @@ class DropZoneWidget(QFrame):
             event.acceptProposedAction()
             return
         event.ignore()
-

@@ -32,6 +32,7 @@ $pyInstallerArgs = @(
     "--name", "WhisperWatch",
     "--add-data", "app/ui/styles.qss;ui",
     "--add-data", "assets/whisperwatch-icon.svg;assets",
+    "--add-data", "assets/notification-bell.svg;assets",
     "--collect-all", "faster_whisper",
     "--collect-all", "ctranslate2",
     "--collect-all", "av"

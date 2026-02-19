@@ -1,5 +1,5 @@
 #define AppName "Whisper Watch"
-#define AppVersion "1.0.0"
+#define AppVersion "1.0.1"
 #define AppPublisher "Whisper Watch"
 #define AppExeName "WhisperWatch.exe"
 
@@ -13,7 +13,7 @@ DefaultGroupName=Whisper Watch
 SetupIconFile=..\assets\whisperwatch-icon.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 OutputDir=..\dist-installer
-OutputBaseFilename=WhisperWatchInstaller_v1_0_0
+OutputBaseFilename=WhisperWatchInstaller_v1_0_1
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

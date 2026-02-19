@@ -11,7 +11,9 @@ Desktop transcription app with a modern tech-style UI, drag-and-drop import, FIF
 - Queue system (first in, first out) so only one file transcribes at a time.
 - Auto-generates and saves `.srt` for every job.
 - Defaults SRT output to `~/Downloads/WhisperWatch` with folder picker override.
-- Built-in link button for SRT editing:
+- Built-in link button for SRT editing (`https://matthewpenkala.com/srt-editor`).
+- In-app update notification bell (red badge when a newer GitHub Release is available).
+- One-click in-place auto-update from the latest installer release asset.
 - Centralized styling in one file: `app/ui/styles.qss`.
 
 ## Workspace Layout
@@ -24,6 +26,8 @@ Desktop transcription app with a modern tech-style UI, drag-and-drop import, FIF
 - `app/core/srt_service.py`: SRT formatting + file writing
 - `app/core/transcription_worker.py`: background worker for one job
 - `app/core/queue_manager.py`: FIFO queue orchestration (single active worker)
+- `app/core/update_service.py`: GitHub release check + download + in-place installer handoff
+- `app/version.py`: app version used for update comparisons
 - `app/ui/widgets.py`: reusable UI widgets (glow buttons + drag/drop zone)
 - `app/ui/main_window.py`: main UI layout + signal wiring
 - `app/ui/styles.qss`: global styles
@@ -55,7 +59,14 @@ Result: `dist\WhisperWatch\WhisperWatch.exe`
 .\scripts\build_installer.ps1
 ```
 
-Result: `dist-installer\WhisperWatchSetup.exe`
+Result: `dist-installer\WhisperWatchInstaller_v1_0_1.exe`
+
+## Auto-Update Requirements
+
+- Publish GitHub Releases in `PoyBoy96/Whisper-Watch`.
+- Tag each release with a semantic version like `v1.0.1`.
+- Attach the installer `.exe` asset to each release.
+- The app checks releases at launch and compares release tag vs `app/version.py`.
 
 ## Notes
 

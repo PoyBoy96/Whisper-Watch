@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Whisper Watch icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#071023" />
+      <stop offset="55%" stop-color="#0a1a3b" />
+      <stop offset="100%" stop-color="#0b2748" />
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#50e8ff" />
+      <stop offset="100%" stop-color="#3b8cff" />
+    </linearGradient>
+    <linearGradient id="pulse" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#64f5de" />
+      <stop offset="100%" stop-color="#6ab7ff" />
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="url(#bg)" />
+
+  <g opacity="0.18" stroke="#80bfff" stroke-width="8" fill="none">
+    <path d="M110 250 H310 M714 250 H914" />
+    <path d="M150 774 H356 M668 774 H874" />
+    <path d="M250 110 V280 M250 744 V914" />
+    <path d="M774 110 V300 M774 724 V914" />
+  </g>
+
+  <circle cx="512" cy="512" r="318" fill="none" stroke="url(#ring)" stroke-width="20" opacity="0.9" />
+  <circle cx="512" cy="512" r="246" fill="none" stroke="#77c8ff" stroke-width="2" opacity="0.35" />
+
+  <g filter="url(#softGlow)">
+    <path
+      d="M244 532 L318 532 L374 448 L430 610 L492 400 L548 622 L620 470 L690 532 L780 532"
+      fill="none"
+      stroke="url(#pulse)"
+      stroke-width="24"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <g fill="none" stroke="#d9f6ff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M356 362 L438 672 L512 458 L586 672 L668 362" />
+  </g>
+
+  <g opacity="0.9">
+    <rect x="300" y="748" width="424" height="20" rx="10" fill="#5dc6ff" />
+    <rect x="372" y="790" width="280" height="20" rx="10" fill="#4ea1ff" />
+  </g>
+</svg>
+
